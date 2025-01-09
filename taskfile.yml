@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+tasks:
+  precommit:
+    cmds:
+      - pre-commit run -a
+  sync:
+    cmds:
+      - uv sync --group test
+  format:
+    cmds:
+      - pre-commit run -a
+  clean:
+    cmds:
+      - cmd: powershell -c "if (Test-Path dist) {rm -r -Force dist}"
+        platforms: [windows]
+      - cmd: rm -rf dist
+        platforms: [linux, darwin]
+  build:
+    deps:
+      - clean
+    cmds:
+      - uv build
+  publish:
+    deps:
+      - build
+    cmds:
+      - uv publish --username __token__ --keyring-provider subprocess
+      - git push
+  bump:
+    vars:
+      PART: '{{ .PART | default "build"}}'
+    deps:
+      - sync
+    cmds:
+      - bump-my-version bump {{ .PART }}
+  release:
+    cmds:
+      - task: bump
+        vars: { PART: patch }
+      - task: publish
+  devrel:
+    cmds:
+      - git add .
+      - if git commit --dry-run --short; then git commit -m "devrel"; else echo nothing changed; fi
+      - task: bump
+      - task: publish
+  upgrade:
+    cmds:
+      - uv-upgrade
+      - task: sync

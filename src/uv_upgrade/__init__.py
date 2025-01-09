@@ -3,10 +3,9 @@ import json
 import logging
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import NotRequired, TypedDict, cast
-
-import tomllib
 
 PKG_NAME_RE = re.compile(r"^([-a-zA-Z\d]+)(\[[-a-zA-Z\d,]+])?[^;]*(;.*)?$")
 
@@ -18,6 +17,12 @@ class Batch:
     name: str | None
     optional: bool
     dependencies: list[str]
+
+
+def pip():
+    args = ["uv", "pip", "list", "--format", "json"]
+    out = subprocess.check_output(args)
+    return json.loads(out)
 
 
 def uv(subcommand: str, packages: list[str], group: str | None, optional: bool):
@@ -64,6 +69,8 @@ def main():
     """
     logging.basicConfig(level=logging.INFO)
     pyproject = load_pyproject()
+
+    print(pip())
 
     batches: list[Batch] = []
 

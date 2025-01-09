@@ -22,7 +22,7 @@ class Batch:
 def pip():
     args = ["uv", "pip", "list", "--format", "json"]
     out = subprocess.check_output(args)
-    return json.loads(out)
+    return {x["name"]: x for x in json.loads(out)}
 
 
 def uv(subcommand: str, packages: list[str], group: str | None, optional: bool):
@@ -46,12 +46,22 @@ ProjectDict = TypedDict(
     },
 )
 
+
+class ToolUVSourceDict(TypedDict):
+    path: NotRequired[str]
+
+
+class ToolUVDict(TypedDict):
+    sources: NotRequired[dict[str, ToolUVSourceDict]]
+
+
+class ToolDict(TypedDict):
+    uv: NotRequired[ToolUVDict]
+
+
 PyProject = TypedDict(
     "PyProject",
-    {
-        "project": ProjectDict,
-        "dependency-groups": NotRequired[dict[str, list[str]]],
-    },
+    {"project": ProjectDict, "dependency-groups": NotRequired[dict[str, list[str]]], "tool": NotRequired[ToolDict]},
 )
 
 
@@ -74,6 +84,10 @@ def main():
 
     batches: list[Batch] = []
 
+    sources: dict[str, ToolUVSourceDict] = {}
+    if "tool" in pyproject and "uv" in pyproject["tool"] and "sources" in pyproject["tool"]["uv"]:
+        sources = pyproject["tool"]["uv"]["sources"]
+
     if "dependencies" in pyproject["project"]:
         if len(pyproject["project"]["dependencies"]) > 0:
             batches.append(Batch(None, False, pyproject["project"]["dependencies"]))
@@ -89,6 +103,7 @@ def main():
     for batch in batches:
         to_remove: list[str] = []
         to_add: list[str] = []
+        to_add_source: list[str] = []
         print(f"Processing {batch.name or 'dependencies'} Optional: {batch.optional}")
         print(json.dumps(batch.dependencies, indent=4))
         for dependency in batch.dependencies:
@@ -96,6 +111,24 @@ def main():
             assert package_match, f"invalid package name '{dependency}'"
             package, extras, constraint = package_match.groups()
             to_remove.append(package)
-            to_add.append(f"{package}{extras or ''}{constraint or ''}")
+            if package in sources:
+                source = sources[package]
+                if "path" not in source:
+                    logger.warning(f"Package {package} has a source but no path")
+                    return
+                to_add_source.append(package)
+                to_add.append(source["path"])
+            else:
+                to_add.append(f"{package}{extras or ''}{constraint or ''}")
         uv("remove", to_remove, group=batch.name, optional=batch.optional)
         uv("add", to_add, group=batch.name, optional=batch.optional)
+
+        to_add = []
+        if len(to_add_source) > 0:
+            pipinfo = pip()
+            for package in to_add_source:
+                if package not in pipinfo:
+                    logger.warning(f"Package {package} not found in pip list")
+                    continue
+                to_add.append(f"{package}>={pipinfo[package]["version"]}")
+            uv("add", to_add, group=batch.name, optional=batch.optional)

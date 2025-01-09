@@ -19,6 +19,11 @@ class Batch:
     dependencies: list[str]
 
 
+def lockinfo():
+    with open("uv.lock", "rb") as fp:
+        return {p["name"]: p for p in tomllib.load(fp)["package"]}
+
+
 def pip():
     args = ["uv", "pip", "list", "--format", "json"]
     out = subprocess.check_output(args)
@@ -125,10 +130,10 @@ def main():
 
         to_add = []
         if len(to_add_source) > 0:
-            pipinfo = pip()
+            info = lockinfo()
             for package in to_add_source:
-                if package not in pipinfo:
-                    logger.warning(f"Package {package} not found in pip list")
+                if package not in info:
+                    logger.warning(f"Package {package} not found in uv lock")
                     continue
-                to_add.append(f"{package}>={pipinfo[package]["version"]}")
+                to_add.append(f"{package}>={info[package]["version"]}")
             uv("add", to_add, group=batch.name, optional=batch.optional)

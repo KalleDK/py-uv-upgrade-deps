@@ -38,7 +38,7 @@ def uv(subcommand: str, packages: list[str], group: str | None, optional: bool):
         else:
             extra_arguments.extend(["--group", group])
 
-    args = ["uv", subcommand, *packages, "--no-sync"] + extra_arguments
+    args = ["uv", subcommand, *packages, "--no-sync", "--no-cache"] + extra_arguments
     logger.info(f"Running: {' '.join(args)}")
     subprocess.check_call(args)
 
@@ -135,5 +135,5 @@ def main():
                 if package not in info:
                     logger.warning(f"Package {package} not found in uv lock")
                     continue
-                to_add.append(f"{package}>={info[package]["version"]}")
+                to_add.append(f"{package}>={info[package]['version']}")
             uv("add", to_add, group=batch.name, optional=batch.optional)

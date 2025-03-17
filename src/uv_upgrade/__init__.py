@@ -2,13 +2,14 @@ import dataclasses
 import enum
 import json
 import logging
-from operator import index
 import os
 import re
 import subprocess
 import tomllib
+from operator import index
 from pathlib import Path
 from typing import NamedTuple, NotRequired, TypedDict, cast
+
 from rich import print
 
 PKG_NAME_RE = re.compile(r"^([\-a-zA-Z\d]+)(\[[-a-zA-Z\d,]+])?[^;]*(;.*)?$")
@@ -55,7 +56,7 @@ class IndexSource(Source):
     index: Index
 
     def __str__(self):
-        return f'{self.index.name}="{self.index.url}"'
+        return f"{self.index.name}={self.index.url}"
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

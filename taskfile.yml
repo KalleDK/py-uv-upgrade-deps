@@ -11,7 +11,7 @@ tasks:
   format:
     cmds:
       - pre-commit run -a
-  clean:
+  cleandist:
     cmds:
       - cmd: powershell -c "if (Test-Path dist) {rm -r -Force dist}"
         platforms: [windows]
@@ -19,7 +19,7 @@ tasks:
         platforms: [linux, darwin]
   build:
     deps:
-      - clean
+      - cleandist
     cmds:
       - uv build
   publish:
@@ -50,3 +50,6 @@ tasks:
     cmds:
       - uv-upgrade
       - task: sync
+  clean:
+    cmds:
+      - git clean -fxd -e .venv

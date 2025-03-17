@@ -27,7 +27,7 @@ class Dependency(NamedTuple):
         assert package_match, f"invalid package name '{line}'"
         package, extras, constraint = package_match.groups()
         return cls(package, extras, constraint)
-    
+
     def __str__(self):
         return f"{self.name}{self.extra or ''}{self.constraint or ''}"
 
@@ -39,34 +39,39 @@ class Extra(NamedTuple):
 class Group(NamedTuple):
     name: str
 
+
 class Index(NamedTuple):
     name: str
     url: str
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Source:
     pass
 
+
 @dataclasses.dataclass(slots=True, frozen=True)
 class IndexSource(Source):
     index: Index
-    
+
     def __str__(self):
-        return f"{self.index.name}=\"{self.index.url}\""
+        return f'{self.index.name}="{self.index.url}"'
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class GitSource(Source):
     url: str
-    
+
     def __str__(self):
         return f"git+{self.url}"
+
 
 @dataclasses.dataclass
 class Deps:
     dependencies: dict[Extra | Group | None, list[str]]
     sources: dict[str, Source]
 
-    
+
 def lockinfo():
     with open("uv.lock", "rb") as fp:
         return {p["name"]: p for p in tomllib.load(fp)["package"]}
@@ -90,6 +95,7 @@ def uv_remove(packages: list[Dependency], group: Extra | Group | None = None):
     logger.info(f"Running: {' '.join(args)}")
     subprocess.check_call(args)
 
+
 def uv_add(packages: list[Dependency], group: Extra | Group | None = None, sources: dict[str, Source] | None = None):
     sources = sources or {}
 
@@ -101,7 +107,7 @@ def uv_add(packages: list[Dependency], group: Extra | Group | None = None, sourc
 
     normal_deps = [dep for dep in packages if dep.name not in sources]
     special_deps = [dep for dep in packages if dep.name in sources]
-    
+
     for dep in special_deps:
         source = sources[dep.name]
         if isinstance(source, IndexSource):
@@ -117,7 +123,7 @@ def uv_add(packages: list[Dependency], group: Extra | Group | None = None, sourc
         args = ["uv", "add", *(str(x) for x in normal_deps), "--no-sync", "--no-cache"] + extra_arguments
         logger.info(f"Running: {' '.join(args)}")
         subprocess.check_call(args)
-    
+
 
 ProjectDict = TypedDict(
     "ProjectDict",
@@ -133,9 +139,11 @@ class ToolUVSourceDict(TypedDict):
     git: NotRequired[str]
     index: NotRequired[str]
 
+
 class ToolUVSourceIndexDict(TypedDict):
     name: str
     url: str
+
 
 class ToolUVDict(TypedDict):
     index: NotRequired[list[ToolUVSourceIndexDict]]
@@ -164,7 +172,6 @@ def main():
         - markers
         - ordering of dependencies
     """
-    
 
     logging.basicConfig(level=logging.INFO)
     pyproject = load_pyproject()
@@ -185,7 +192,7 @@ def main():
                 sources[name] = GitSource(source["git"])
             else:
                 raise ValueError(f"Unknown source type {source}")
-    
+
     dependency_groups: dict[Extra | Group | None, list[Dependency]] = {}
 
     if "dependencies" in pyproject["project"] and len(pyproject["project"]["dependencies"]) > 0:
@@ -198,11 +205,9 @@ def main():
     if "dependency-groups" in pyproject:
         for name, dependencies in pyproject["dependency-groups"].items():
             dependency_groups[Group(name)] = [Dependency.from_line(dep) for dep in dependencies]
-    
 
     for group, dependencies in dependency_groups.items():
         uv_remove(dependencies, group=group)
 
     for group, dependencies in dependency_groups.items():
         uv_add(dependencies, group=group, sources=sources)
-    

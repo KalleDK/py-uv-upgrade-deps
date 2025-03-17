@@ -31,6 +31,10 @@ tools = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+publish-url = "https://__token__@upload.pypi.org/legacy/"
+keyring-provider = "subprocess"
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
